@@ -12,7 +12,7 @@ from .types import AnyData, AnyLoadableDF, AnyPath
 
 CUR_DIR = Path(__file__).parent
 
-__all__ = ["evaluate", "evaluate_from_model", "analyze_evaluators", "make_leaderboard"]
+__all__ = ["evaluate", "evaluate_from_model", "setup_and_evaluate_hf_model", "analyze_evaluators", "make_leaderboard"]
 
 
 def evaluate(
@@ -387,7 +387,7 @@ def setup_and_evaluate_hf_model(
     max_new_tokens: int = 2048,
     batch_size: int = 1,
     cache_dir: Optional[str] = constants.DEFAULT_CACHE_DIR,
-    remove_ending: Optional[str] = None,
+    remove_ending: Optional[bool] = True,
     is_fast_tokenizer: bool = True,
     adapters_name: Optional[str] = None,
     model_kwargs: Optional[dict] = None,
@@ -404,7 +404,7 @@ def setup_and_evaluate_hf_model(
         The identifier name of the model uploaded to Hugging Face (e.g. "username/model_name").
         
     prompt_template : str
-        The path to the prompt template file relative to `src/alpaca_eval/models_configs/{model_name}/`.
+        The path to the prompt template file relative to `src/alpaca_eval/models_configs/`.
         
     pretty_name : str, optional 
         The display name for the model in the leaderboard. If not provided, `model_name` will be used.
@@ -451,23 +451,23 @@ def setup_and_evaluate_hf_model(
     
     model_config = {
         model_name: {
-            "prompt_template": prompt_template,
+            "prompt_template": f'"{prompt_template}"',
             "fn_completions": "huggingface_local_completions", 
             "completions_kwargs": {
-                "model_name": hf_model_id,
+                "model_name":  f'"{hf_model_id}"',
                 "do_sample": do_sample,
                 "temperature": temperature,
                 "top_p": top_p, 
                 "max_new_tokens": max_new_tokens,
                 "batch_size": batch_size,
-                "cache_dir": cache_dir,
+                "cache_dir": f'"{cache_dir}"',
                 "remove_ending": remove_ending,
                 "is_fast_tokenizer": is_fast_tokenizer,
-                "adapters_name": adapters_name,
+                "adapters_name": f'"{adapters_name}"',
                 "model_kwargs": model_kwargs or {},
             },
-            "pretty_name": pretty_name or model_name,
-            "link": model_link,
+            "pretty_name": f'"{pretty_name}"' or f'"{model_name}"',
+            "link": f'"{model_link}"',
         }
     }
     
