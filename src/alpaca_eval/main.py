@@ -5,6 +5,7 @@ from typing import Any, Callable, Literal, Optional, Sequence, Union
 
 import fire
 import pandas as pd
+import yaml
 
 from . import analyze, annotators, constants, decoders, metrics, utils
 from .types import AnyData, AnyLoadableDF, AnyPath
@@ -374,6 +375,109 @@ def evaluate_from_model(
         **kwargs,
     )
 
+def setup_and_evaluate_hf_model(
+    model_name: str,
+    hf_model_id: str,
+    prompt_template: str,
+    pretty_name: Optional[str] = None,
+    model_link: Optional[str] = None,
+    do_sample: bool = True,
+    temperature: float = 0.7,
+    top_p: float = 1.0,
+    max_new_tokens: int = 2048,
+    batch_size: int = 1,
+    cache_dir: Optional[str] = constants.DEFAULT_CACHE_DIR,
+    remove_ending: Optional[str] = None,
+    is_fast_tokenizer: bool = True,
+    adapters_name: Optional[str] = None,
+    model_kwargs: Optional[dict] = None,
+    **evaluate_kwargs,
+):
+    """Set up a new Hugging Face model configuration and evaluate it on the Alpaca Eval dataset.
+    
+    Parameters
+    ----------
+    model_name : str
+        The name of the model. This will be used as the directory name under `src/alpaca_eval/models_configs/`.
+        
+    hf_model_id : str 
+        The identifier name of the model uploaded to Hugging Face (e.g. "username/model_name").
+        
+    prompt_template : str
+        The path to the prompt template file relative to `src/alpaca_eval/models_configs/{model_name}/`.
+        
+    pretty_name : str, optional 
+        The display name for the model in the leaderboard. If not provided, `model_name` will be used.
+        
+    model_link : str, optional
+        A link to the model's repository or information page to display in the leaderboard.
+        
+    do_sample : bool, optional
+        Whether to use sampling during generation. Defaults to True.
+
+    temperature : float, optional
+        The temperature to use for sampling. Defaults to 0.7.
+
+    top_p : float, optional  
+        The top-p value to use for sampling. Defaults to 1.0.
+        
+    max_new_tokens : int, optional
+        The maximum number of new tokens to generate. Defaults to 2048.
+        
+    batch_size : int, optional  
+        The batch size to use for generation. Defaults to 1.
+        
+    cache_dir : str, optional
+        The directory to cache the model. Defaults to constants.DEFAULT_CACHE_DIR.
+        
+    remove_ending : str, optional
+        A string to remove from the end of the generated text. 
+        
+    is_fast_tokenizer : bool, optional
+        Whether to use a fast tokenizer. Defaults to True.
+        
+    adapters_name : str, optional 
+        The name of the adapter to use, if any.
+        
+    model_kwargs : dict, optional
+        Additional keyword arguments to pass to the model when loading it. 
+        See `src/alpaca_eval/models_configs/falcon-7b-instruct/configs.yaml` for an example.
+        
+    evaluate_kwargs : 
+        Additional keyword arguments to pass to `evaluate_from_model()`.
+    """
+    model_config_dir = constants.MODELS_CONFIG_DIR / model_name
+    model_config_dir.mkdir(exist_ok=True, parents=True)
+    
+    model_config = {
+        model_name: {
+            "prompt_template": prompt_template,
+            "fn_completions": "huggingface_local_completions", 
+            "completions_kwargs": {
+                "model_name": hf_model_id,
+                "do_sample": do_sample,
+                "temperature": temperature,
+                "top_p": top_p, 
+                "max_new_tokens": max_new_tokens,
+                "batch_size": batch_size,
+                "cache_dir": cache_dir,
+                "remove_ending": remove_ending,
+                "is_fast_tokenizer": is_fast_tokenizer,
+                "adapters_name": adapters_name,
+                "model_kwargs": model_kwargs or {},
+            },
+            "pretty_name": pretty_name or model_name,
+            "link": model_link,
+        }
+    }
+    
+    config_path = model_config_dir / "configs.yaml"
+    with open(config_path, 'w') as f:
+        yaml.dump(model_config, f)
+        
+    logging.info(f"Created model configuration at {config_path}")
+        
+    return evaluate_from_model(model_configs=model_name, **evaluate_kwargs)
 
 def make_leaderboard(
     leaderboard_path: Optional[AnyPath] = None,
@@ -594,6 +698,7 @@ def analyze_evaluators(
 ALL_FUNCTIONS = {
     "evaluate": evaluate,
     "evaluate_from_model": evaluate_from_model,
+    "setup_and_evaluate_hf_model": setup_and_evaluate_hf_model,
     "make_leaderboard": make_leaderboard,
     "analyze_evaluators": analyze_evaluators,
 }
